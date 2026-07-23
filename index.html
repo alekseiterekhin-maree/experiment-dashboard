@@ -60,8 +60,19 @@
   .st.active{color:var(--accent);border-color:rgba(79,140,255,.4)}
   .warnicon{color:var(--warn);font-size:15px}
   .up{color:var(--green)} .down{color:var(--red)}
-  .detail{background:var(--card);border:1px solid var(--border);border-top:none}
-  .detail-inner{padding:18px 16px 22px}
+  /* opened row highlight */
+  tbody tr.row.open{background:rgba(79,140,255,.14)}
+  tbody tr.row.open:hover{background:rgba(79,140,255,.14)}
+  tbody tr.row.open td{border-bottom:none;box-shadow:inset 0 2px 0 var(--accent)}
+  tbody tr.row.open td:first-child{box-shadow:inset 3px 2px 0 var(--accent)}
+  /* expanded detail as a distinct nested card */
+  .detail{background:#10192b;border-left:3px solid var(--accent);border-right:1px solid var(--border)}
+  .detail-inner{padding:16px 18px 24px;margin:0 4px 10px;position:relative}
+  .detail-head{display:flex;align-items:center;gap:12px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border)}
+  .detail-head .dh-name{font-size:16px;font-weight:650}
+  .detail-head .eid{font-size:11px}
+  .detail-head .dh-close{margin-left:auto;background:var(--card2);border:1px solid var(--border);color:var(--muted);border-radius:7px;width:26px;height:26px;cursor:pointer;font-size:12px;line-height:1}
+  .detail-head .dh-close:hover{color:var(--text);border-color:var(--accent)}
   .reasonbar{background:rgba(79,140,255,.10);border:1px solid rgba(79,140,255,.35);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px}
   .reasonbar b{color:var(--accent)}
   .warnbar{background:rgba(255,138,61,.12);border:1px solid rgba(255,138,61,.45);color:#ffb787;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px}
@@ -125,8 +136,8 @@
       <th data-k="start">Старт <span class="ar"></span></th>
       <th data-k="lastSnapshot">Посл. срез <span class="ar"></span></th>
       <th data-k="week" class="num">Нед. <span class="ar"></span></th>
-      <th data-k="prob_B" class="num">P(B) CR <span class="ar"></span></th>
       <th data-k="amazon_pu" class="num">P(B) Amazon <span class="ar"></span></th>
+      <th data-k="prob_B" class="num">P(B) CR <span class="ar"></span></th>
       <th data-k="EL_B" class="num">EL(B) <span class="ar"></span></th>
       <th data-k="VR" class="num">VR <span class="ar"></span></th>
       <th data-k="verdict">Вердикт <span class="ar"></span></th>
@@ -215,17 +226,17 @@ function render(){
   tb.innerHTML='';
   rows.forEach(e=>{
     const l=e.latest;
-    const tr=document.createElement('tr'); tr.className='row';
+    const tr=document.createElement('tr'); tr.className='row'+(state.open===e.id?' open':'');
     tr.innerHTML=`
       <td><div class="name">${e.name}</div><div class="eid">${e.id}</div></td>
       <td><span class="st ${e.status==='IN_PROGRESS'?'active':''}">${e.status}</span></td>
       <td class="muted">${e.start||'—'}</td>
       <td class="muted">${e.lastSnapshot||'—'}</td>
       <td class="num">${l.week}</td>
-      <td class="num">${pct(l.prob_B)}</td>
       <td class="num">${pct(l.amazon_pu)}</td>
-      <td class="num">${pct3(l.EL_B)}</td>
-      <td class="num">${pct3(l.VR)}</td>
+      <td class="num">${pct(l.prob_B)}</td>
+      <td class="num">${pct(l.EL_B)}</td>
+      <td class="num">${pct(l.VR)}</td>
       <td><span class="badge ${VClass(l.verdict)}">${l.verdict}</span></td>
       <td>${l.warning?'<span class="warnicon" title="'+l.warning+'">⚠</span>':''}</td>`;
     tr.addEventListener('click',()=>toggle(e.id));
@@ -235,6 +246,7 @@ function render(){
       const td=document.createElement('td'); td.colSpan=11; td.className='detail';
       td.appendChild(detail(e));
       dr.appendChild(td); tb.appendChild(dr);
+      const cb=td.querySelector('.dh-close'); if(cb) cb.addEventListener('click',ev=>{ev.stopPropagation();toggle(e.id);});
       requestAnimationFrame(()=>drawCharts(e));
     }
   });
@@ -252,6 +264,7 @@ function detail(e){
   const box=document.createElement('div'); box.className='detail-inner';
   const l=e.latest, M=e.latest_metrics;
   let html='';
+  html+=`<div class="detail-head"><span class="dh-name">${e.name}</span><span class="eid">${e.id}</span><span class="badge ${VClass(l.verdict)}">${l.verdict}</span><button class="dh-close" title="Свернуть">✕</button></div>`;
   html+=`<div class="reasonbar">Вердикт <span class="badge ${VClass(l.verdict)}">${l.verdict}</span> · <b>Почему:</b> ${l.reason}</div>`;
   if(l.warning) html+=`<div class="warnbar">⚠ ${l.warning}</div>`;
 
@@ -272,7 +285,7 @@ function detail(e){
 
   html+=`<div class="charts">
     <div class="chartbox"><h4>Аплифт конверсии CR(B)/CR(A)−1</h4><div class="cwrap"><canvas id="c-up-${e.id}"></canvas></div></div>
-    <div class="chartbox"><h4>P(B лучше): наша vs Amazon</h4><div class="cwrap"><canvas id="c-prob-${e.id}"></canvas></div></div>
+    <div class="chartbox"><h4>P(B лучше): CR vs Amazon</h4><div class="cwrap"><canvas id="c-prob-${e.id}"></canvas></div></div>
     <div class="chartbox"><h4>EL(B) — ожидаемая потеря выкатки B</h4><div class="cwrap"><canvas id="c-el-${e.id}"></canvas></div></div>
     <div class="chartbox"><h4>VR — value remaining (95п)</h4><div class="cwrap"><canvas id="c-vr-${e.id}"></canvas></div></div>
   </div>`;
@@ -290,7 +303,7 @@ function detail(e){
       <td class="num">${pct(t.convA,3)}</td><td class="num">${pct(t.convB,3)}</td>
       <td class="num ${upc}">${upfmt(t.uplift)}</td>
       <td class="num">${pct(t.amazon_pu)}</td><td class="num">${pct(t.prob_B)}</td>
-      <td class="num">${pct3(t.EL_B)}</td><td class="num">${pct3(t.VR)}</td>
+      <td class="num">${pct(t.EL_B)}</td><td class="num">${pct(t.VR)}</td>
       <td><span class="badge ${VClass(t.verdict)}">${t.verdict}</span></td>
       <td>${t.warning?'<span class="warnicon" title="'+t.warning+'">⚠</span>':''}</td></tr>`;
   });
@@ -300,14 +313,16 @@ function detail(e){
 }
 
 const AXIS={grid:{color:'rgba(255,255,255,0.06)'},ticks:{color:'#8b97b0',font:{size:10}}};
+const PCTDEC={prob:0, uplift:1, pct1:1};   // percent decimals per chart kind
 function baseOpts(kind){
-  const pctY = (kind==='prob'||kind==='uplift');
+  const isPct = kind in PCTDEC; const dec = isPct?PCTDEC[kind]:0;
   return {responsive:true,maintainAspectRatio:false,
     plugins:{legend:{labels:{color:'#e6ebf5',boxWidth:12,font:{size:10}}},
-      tooltip:{callbacks:pctY?{label:c=>c.dataset.label+': '+(c.parsed.y*100).toFixed(2)+'%'}:{}}},
-    scales:{x:AXIS,y:{...AXIS,ticks:{...AXIS.ticks,callback:pctY?(v=>(v*100).toFixed(kind==='uplift'?1:0)+'%'):(v=>v)}}}};
+      tooltip:{callbacks:isPct?{label:c=>c.dataset.label+': '+(c.parsed.y*100).toFixed(dec)+'%'}:{}}},
+    scales:{x:AXIS,y:{...AXIS,ticks:{...AXIS.ticks,callback:isPct?(v=>(v*100).toFixed(dec)+'%'):(v=>v)}}}};
 }
 function line(labels,label,vals,color,fill){return{label,data:vals,borderColor:color,backgroundColor:fill||color,tension:.25,pointRadius:3,borderWidth:2,spanGaps:true};}
+const GREEN='#31c48d', RED='#f26d6d';
 
 function drawCharts(e){
   const t=e.trajectory, labels=t.map(x=>'W'+x.week);
@@ -317,15 +332,22 @@ function drawCharts(e){
     const opt=baseOpts(kind); if(extra)extra(opt);
     charts[cid]=new Chart(el,{type:'line',data:{labels,datasets},options:opt});
   };
-  mk('c-up-'+e.id,[line(labels,'Аплифт CR',t.map(x=>x.uplift),'#31c48d')],'uplift',opt=>{
-    opt.plugins.annotationZero=true;
+  // Uplift: green above 0 / red below 0, with emphasized zero baseline
+  const up=t.map(x=>x.uplift);
+  const upColor=v=> v==null?'#8b97b0':(v>=0?GREEN:RED);
+  const upDs={label:'Аплифт CR', data:up, tension:.25, borderWidth:2, spanGaps:true, fill:false,
+    pointRadius:3, pointBackgroundColor:up.map(upColor), pointBorderColor:up.map(upColor), borderColor:GREEN,
+    segment:{borderColor:ctx=>((ctx.p0.parsed.y<0||ctx.p1.parsed.y<0)?RED:GREEN)}};
+  mk('c-up-'+e.id,[upDs],'uplift',opt=>{
+    opt.scales.y.grid={color:c=>c.tick.value===0?'rgba(255,255,255,0.38)':'rgba(255,255,255,0.06)',
+                       lineWidth:c=>c.tick.value===0?1.5:1};
   });
   mk('c-prob-'+e.id,[
-    line(labels,'P(B) CR',t.map(x=>x.prob_B),'#31c48d'),
+    line(labels,'P(B) CR',t.map(x=>x.prob_B),GREEN),
     line(labels,'Amazon PU',t.map(x=>x.amazon_pu),'#f0b429')
   ],'prob',opt=>{opt.scales.y.min=0;opt.scales.y.max=1;});
-  mk('c-el-'+e.id,[line(labels,'EL(B)',t.map(x=>x.EL_B),'#f0b429')],'lin');
-  mk('c-vr-'+e.id,[line(labels,'VR',t.map(x=>x.VR),'#4f8cff')],'lin');
+  mk('c-el-'+e.id,[line(labels,'EL(B)',t.map(x=>x.EL_B),'#f0b429')],'pct1');
+  mk('c-vr-'+e.id,[line(labels,'VR',t.map(x=>x.VR),'#4f8cff')],'pct1');
 }
 
 document.getElementById('search').addEventListener('input',ev=>{state.search=ev.target.value;state.open=null;render();});
