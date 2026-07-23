@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Experiment Decision Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --card: #182031;
+    --border: #263048;
+    --text: #e6ebf5;
+    --muted: #8b97b0;
+    --accent: #4f8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 20px;
+  }
+  header { text-align: center; margin-bottom: 32px; }
+  h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin-top: 8px; font-size: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+    max-width: 720px;
+    width: 100%;
+    text-align: center;
+  }
+  .badge {
+    display: inline-block;
+    background: rgba(79,140,255,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(79,140,255,0.35);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+  .card p { color: var(--muted); line-height: 1.6; font-size: 15px; }
+  footer { color: var(--muted); font-size: 12px; margin-top: 28px; }
+  code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 5px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Experiment Decision Dashboard</h1>
+    <div class="sub">Amazon experiments · обновляется еженедельно</div>
+  </header>
+  <div class="card">
+    <span class="badge">Placeholder</span>
+    <p>Пайплайн публикации работает. Эта страница — заглушка для проверки хостинга на GitHub Pages.
+    Реальные метрики, статистики и рекомендации (ship / no-ship / continue) появятся здесь после подключения API и описания логики расчётов.</p>
+  </div>
+  <footer>Последнее обновление: <span id="updated"></span></footer>
+  <script>
+    document.getElementById('updated').textContent =
+      new Date().toLocaleString('ru-RU', { dateStyle: 'long', timeStyle: 'short' });
+  </script>
+</body>
+</html>
