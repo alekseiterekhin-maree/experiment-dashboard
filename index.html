@@ -56,6 +56,7 @@
   .b-green{background:rgba(49,196,141,.15);color:var(--green);border:1px solid rgba(49,196,141,.4)}
   .b-red{background:rgba(242,109,109,.15);color:var(--red);border:1px solid rgba(242,109,109,.4)}
   .b-amber{background:rgba(240,180,41,.15);color:var(--amber);border:1px solid rgba(240,180,41,.4)}
+  .b-gray{background:rgba(139,151,176,.13);color:var(--muted);border:1px solid rgba(139,151,176,.35)}
   .st{font-size:11px;padding:2px 8px;border-radius:6px;background:var(--card2);color:var(--muted);border:1px solid var(--border)}
   .st.active{color:var(--accent);border-color:rgba(79,140,255,.4)}
   .warnicon{color:var(--warn);font-size:15px}
@@ -186,11 +187,11 @@ let state = {status:'active', search:'', onlyWarn:false, sortK:'name', sortDir:1
 const charts = {};
 
 function filtered(){
-  let rows = DATA.experiments.filter(e=>e.latest);
+  let rows = DATA.experiments.slice();
   if(state.status==='active') rows = rows.filter(e=>e.status==='IN_PROGRESS');
   else if(state.status!=='all') rows = rows.filter(e=>e.status===state.status);
   if(state.search){ const q=state.search.toLowerCase(); rows=rows.filter(e=>e.name.toLowerCase().includes(q)||e.id.toLowerCase().includes(q)); }
-  if(state.onlyWarn) rows = rows.filter(e=>e.latest.warning);
+  if(state.onlyWarn) rows = rows.filter(e=>e.latest&&e.latest.warning);
   const k=state.sortK, d=state.sortDir;
   rows.sort((a,b)=>{
     let va,vb;
@@ -199,8 +200,8 @@ function filtered(){
     else if(k==='start'){va=a.start||'';vb=b.start||'';}
     else if(k==='lastSnapshot'){va=a.lastSnapshot||'';vb=b.lastSnapshot||'';}
     else if(k==='week'){va=a.weeks;vb=b.weeks;}
-    else if(k==='verdict'){va=a.latest.verdict;vb=b.latest.verdict;}
-    else {va=a.latest[k]; vb=b.latest[k];}
+    else if(k==='verdict'){va=a.latest?a.latest.verdict:'';vb=b.latest?b.latest.verdict:'';}
+    else {va=a.latest?a.latest[k]:null; vb=b.latest?b.latest[k]:null;}
     if(va==null)va=-Infinity; if(vb==null)vb=-Infinity;
     if(va<vb)return -1*d; if(va>vb)return 1*d; return 0;
   });
@@ -208,14 +209,18 @@ function filtered(){
 }
 
 function summary(){
-  const act = DATA.experiments.filter(e=>e.status==='IN_PROGRESS'&&e.latest);
-  const vc={}; let warn=0;
-  act.forEach(e=>{ vc[e.latest.verdict]=(vc[e.latest.verdict]||0)+1; if(e.latest.warning)warn++; });
+  const act = DATA.experiments.filter(e=>e.status==='IN_PROGRESS');
+  const vc={}; let warn=0, nodata=0;
+  act.forEach(e=>{
+    if(!e.latest){ nodata++; return; }
+    vc[e.latest.verdict]=(vc[e.latest.verdict]||0)+1; if(e.latest.warning)warn++;
+  });
   document.getElementById('summary').innerHTML = `
     <div class="stat"><div class="n">${act.length}</div><div class="l">активных</div></div>
     <div class="stat"><div class="n" style="color:var(--green)">${vc['Stop winner B']||0}</div><div class="l">Stop winner B</div></div>
     <div class="stat"><div class="n" style="color:var(--red)">${vc['Stop winner A / neutral']||0}</div><div class="l">Stop A / neutral</div></div>
     <div class="stat"><div class="n" style="color:var(--amber)">${vc['Prolong']||0}</div><div class="l">Prolong</div></div>
+    <div class="stat"><div class="n" style="color:var(--muted)">${nodata}</div><div class="l">без данных</div></div>
     <div class="stat"><div class="n" style="color:var(--warn)">${warn}</div><div class="l">предупреждений</div></div>`;
 }
 
@@ -227,6 +232,20 @@ function render(){
   rows.forEach(e=>{
     const l=e.latest;
     const tr=document.createElement('tr'); tr.className='row'+(state.open===e.id?' open':'');
+    if(!l){
+      tr.innerHTML=`
+        <td><div class="name">${e.name}</div><div class="eid">${e.id}</div></td>
+        <td><span class="st ${e.status==='IN_PROGRESS'?'active':''}">${e.status}</span></td>
+        <td class="muted">${e.start||'—'}</td>
+        <td class="muted">—</td>
+        <td class="num">0</td>
+        <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
+        <td><span class="badge b-gray">Нет данных</span></td>
+        <td></td>`;
+      tr.title='Amazon ещё не опубликовал результаты (нет ни одного недельного окна)';
+      tb.appendChild(tr);
+      return;
+    }
     tr.innerHTML=`
       <td><div class="name">${e.name}</div><div class="eid">${e.id}</div></td>
       <td><span class="st ${e.status==='IN_PROGRESS'?'active':''}">${e.status}</span></td>
