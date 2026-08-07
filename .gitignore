@@ -2,6 +2,7 @@ env.txt
 venv/
 *.skill
 .claude/
+workflow.md
 __pycache__/
 *.pyc
 *.json
