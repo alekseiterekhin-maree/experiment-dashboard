@@ -1,0 +1,8 @@
+env.txt
+venv/
+*.skill
+.claude/
+__pycache__/
+*.pyc
+*.json
+*.csv
