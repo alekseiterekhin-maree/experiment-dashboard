@@ -38,16 +38,17 @@
   .rules-body td.wk{font-weight:600;white-space:nowrap}
   .rules-body code{background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px;font-size:12px}
   .summary{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
-  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:110px}
-  .stat .n{font-size:22px;font-weight:650}
-  .stat .l{font-size:12px;color:var(--muted);margin-top:2px}
+  .section-label{font-size:16px;color:var(--text);margin:22px 0 6px;font-weight:800}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:110px;flex-shrink:0}
+  .stat .n{font-size:22px;font-weight:650;white-space:nowrap}
+  .stat .l{font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap}
   .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0}
   .controls input[type=text]{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 12px;font-size:14px;min-width:220px}
   .controls input[type=date]{background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 10px;font-size:13px;color-scheme:dark}
   .daterange{display:flex;align-items:center;gap:8px}
-  .funnel{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
-  .funnel-arrow{color:var(--muted);font-size:20px;line-height:1}
-  .funnel-group-row{display:flex;flex-wrap:wrap;gap:10px}
+  .funnel{display:flex;flex-wrap:nowrap;align-items:center;gap:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  .funnel-arrow{color:var(--muted);font-size:20px;line-height:1;flex-shrink:0}
+  .funnel-group-row{display:flex;flex-wrap:nowrap;gap:10px;flex-shrink:0}
   .dynblock{display:flex;flex-direction:column;gap:10px;margin:16px 0}
   .seg.gran{margin-bottom:10px}
   .chartbox.wide{width:100%}
@@ -180,6 +181,9 @@
     <span class="chip"><span class="st">Decided</span>решение продукта зафиксировано (A или B)</span>
   </div>
   <div class="summary" id="summaryTotal"></div>
+
+  <div class="section-label" id="lastMonthLabel"></div>
+  <div class="summary" id="summaryLastMonth"></div>
 
   <div class="controls">
     <div class="daterange">
@@ -579,8 +583,50 @@ function renderFunnelTotal(rows){
         <div class="stat"><div class="n" style="color:var(--green)">${f.winners}</div><div class="l">победителей (B)</div></div>
         <div class="stat"><div class="n" style="color:var(--green)">${pct(f.winRate)}</div><div class="l">Win Rate (${f.winners}/${f.decided})</div></div>
         <div class="stat"><div class="n" style="color:var(--green)">${upfmt(f.avgUplift)}</div><div class="l">Avg Uplift CR</div></div>
-        <div class="stat"><div class="n" style="color:var(--green)">${pct(f.avgWeight,2)}</div><div class="l">Avg Weight Win Asin</div></div>
-        <div class="stat"><div class="n" style="color:var(--green)">${pct(f.kpi,2)}</div><div class="l">Metric</div></div>
+      </div>
+    </div>`;
+}
+
+// Статичный блок "за последний месяц" — НЕ зависит от фильтров TOTAL-таблицы (сознательный
+// выбор, в отличие от воронки выше): всегда считается по ПОЛНОМУ набору DATA.total.experiments,
+// окно — последние 30 дней от даты среза (DATA.fetchedAt), по date_end Decided-экспериментов,
+// день среза включается (то же окно, что у расчёта Веса ASIN).
+function computeLastMonth(){
+  const anchor = DATA.fetchedAt.slice(0,10); // "2026-10-01"
+  const anchorD = new Date(anchor+'T00:00:00Z');
+  const startD = new Date(anchorD); startD.setUTCDate(startD.getUTCDate()-30);
+  const start = startD.toISOString().slice(0,10);
+  const rows = DATA.total.experiments.filter(r=>{
+    if(r.status!=='Decided') return false;
+    const iso = dmyToISO(r.date_end);
+    return iso && iso>=start && iso<=anchor;
+  });
+  const decided = rows.length;
+  const winners = rows.filter(r=>r.decision==='B');
+  const winRate = decided ? winners.length/decided : null;
+  const upliftVals = winners.filter(r=>r.uplift!=null).map(r=>r.uplift);
+  const avgUplift = upliftVals.length ? upliftVals.reduce((a,b)=>a+b,0)/upliftVals.length : null;
+  const weightVals = winners.filter(r=>r.asin_weight!=null).map(r=>r.asin_weight);
+  const avgWeight = weightVals.length ? weightVals.reduce((a,b)=>a+b,0)/weightVals.length : null;
+  const metric = (winRate!=null && avgUplift!=null && avgWeight!=null) ? decided*winRate*avgUplift*avgWeight : null;
+  return {start, anchor, decided, winners:winners.length, winRate, avgUplift, avgWeight, metric};
+}
+
+function renderLastMonth(){
+  const el = document.getElementById('summaryLastMonth');
+  if(!el || !DATA.total) return;
+  const m = computeLastMonth();
+  const lbl = document.getElementById('lastMonthLabel');
+  if(lbl) lbl.textContent = `Статистика за последний месяц (${m.start} — ${m.anchor})`;
+  el.innerHTML = `
+    <div class="funnel">
+      <div class="funnel-group-row">
+        <div class="stat"><div class="n">${m.decided}</div><div class="l">решено</div></div>
+        <div class="stat"><div class="n" style="color:var(--green)">${m.winners}</div><div class="l">победителей (B)</div></div>
+        <div class="stat"><div class="n" style="color:var(--green)">${pct(m.winRate)}</div><div class="l">Win Rate</div></div>
+        <div class="stat"><div class="n" style="color:var(--green)">${upfmt(m.avgUplift)}</div><div class="l">Avg Uplift CR</div></div>
+        <div class="stat"><div class="n" style="color:var(--green)">${pct(m.avgWeight,2)}</div><div class="l">Avg Weight Win Asin</div></div>
+        <div class="stat"><div class="n" style="color:var(--green)">${pct(m.metric,2)}</div><div class="l">Metric</div></div>
         <div class="stat"><div class="n" style="color:var(--amber)">${pct(KPI_TARGET,1)}</div><div class="l">KPI</div></div>
       </div>
     </div>`;
@@ -748,6 +794,7 @@ function renderTotal(){
   const tb = document.getElementById('tbodyTotal');
   const rows = filteredTotal();
   renderFunnelTotal(rows); // те же строки, что и в таблице ниже — воронка всегда сходится с фильтром
+  renderLastMonth(); // статичный блок, НЕ зависит от rows/фильтров — всегда по полному набору
   refreshDyn(rows); // и графики динамики — та же выборка
   document.getElementById('emptyRowsTotal').style.display = rows.length? 'none':'block';
   tb.innerHTML='';
