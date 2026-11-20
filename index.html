@@ -543,7 +543,18 @@ document.querySelectorAll('#tab-now table.main thead th[data-k]').forEach(th=>th
   render();
 }));
 
-summary(); render();
+summary();
+// Deep link: ?exp=MYE-... открывает конкретный эксперимент
+(function(){
+  const exp=new URLSearchParams(location.search).get('exp');
+  if(!exp) return;
+  const e=DATA.experiments.find(x=>x.id===exp);
+  if(!e) return;
+  state.status='all'; state.search=e.id; state.open=e.id;
+  document.querySelectorAll('#statusSeg button').forEach(b=>b.classList.toggle('active',b.dataset.s==='all'));
+  const inp=document.getElementById('search'); if(inp) inp.value=e.id;
+})();
+render();
 
 // ===== TOTAL tab =====
 const StatusClass = s => s==='In Progress' ? 'st active' : s==='Waiting Decision' ? 'st wait' : 'st';
